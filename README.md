@@ -14,4 +14,4 @@ HARDHAT_NETWORK=test npx hardhat run scripts/deploy.js
 
 ### Test Output
 
-![alt text](https://github.com/Akkii4/etherfi_refactored/blob/main/test.png)
+![alt text](https://github.com/Akkii4/etherfi_refactored/blob/main/test_result.png)

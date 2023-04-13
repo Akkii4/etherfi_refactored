@@ -16,6 +16,8 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
         uint256 totalERC20Balance;
     }
 
+    error TokenTransferFailed();
+
     //--------------------------------------------------------------------------------------
     //---------------------------------  STATE-VARIABLES  ----------------------------------
     //--------------------------------------------------------------------------------------
@@ -26,12 +28,12 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
     //Time when depositing closed and will be used for calculating reards
     uint256 public endTime;
 
-    address private immutable _rETH; // 0xae78736Cd615f374D3085123A210448E74Fc6393;
-    address private immutable _wstETH; // 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
-    address private immutable _sfrxETH; // 0xac3E018457B222d93114458476f3E3416Abbe38F;
-    address private immutable _cbETH; // 0xBe9895146f7AF43049ca1c1AE358B0541Ea49704;
+    IERC20 private immutable _rETH; // 0xae78736Cd615f374D3085123A210448E74Fc6393;
+    IERC20 private immutable _wstETH; // 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
+    IERC20 private immutable _sfrxETH; // 0xac3E018457B222d93114458476f3E3416Abbe38F;
+    IERC20 private immutable _cbETH; // 0xBe9895146f7AF43049ca1c1AE358B0541Ea49704;
 
-    address[4] private _supportedTokens;
+    IERC20[4] private _supportedTokens;
 
     //Future contract which funds will be sent to on claim (Most likely LP)
     address public claimReceiverContract;
@@ -40,13 +42,8 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
     uint8 public claimingOpen;
 
     //user address => token address = balance
-    mapping(address => mapping(address => uint256)) public userToErc20Balance;
+    mapping(address => mapping(IERC20 => uint256)) public userToErc20Balance;
     mapping(address => UserDepositInfo) public depositInfo;
-
-    IERC20 private _rETHInstance;
-    IERC20 private _wstETHInstance;
-    IERC20 private _sfrxETHInstance;
-    IERC20 private _cbETHInstance;
 
     //--------------------------------------------------------------------------------------
     //-------------------------------------  EVENTS  ---------------------------------------
@@ -71,7 +68,7 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
     /// @param wstETH address of the wstEth contract to receive
     /// @param sfrxETH address of the sfrxEth contract to receive
     /// @param cbETH address of the _cbEth contract to receive
-    constructor(address rETH, address wstETH, address sfrxETH, address cbETH) {
+    constructor(IERC20 rETH, IERC20 wstETH, IERC20 sfrxETH, IERC20 cbETH) {
         _rETH = rETH;
         _wstETH = wstETH;
         _sfrxETH = sfrxETH;
@@ -81,11 +78,6 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
         _supportedTokens[1] = wstETH;
         _supportedTokens[2] = sfrxETH;
         _supportedTokens[3] = cbETH;
-
-        _rETHInstance = IERC20(_rETH);
-        _wstETHInstance = IERC20(_wstETH);
-        _sfrxETHInstance = IERC20(_sfrxETH);
-        _cbETHInstance = IERC20(_cbETH);
     }
 
     //--------------------------------------------------------------------------------------
@@ -97,7 +89,7 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
     /// @param _erc20Contract erc20 token contract being deposited
     /// @param _amount amount of the erc20 token being deposited
     function deposit(
-        address _erc20Contract,
+        IERC20 _erc20Contract,
         uint256 _amount
     ) external onlyCorrectAmount(_amount) depositingOpen whenNotPaused {
         uint256 isTokenSupported = 0;
@@ -114,14 +106,9 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
         userInfo.depositTime = block.timestamp;
         userInfo.totalERC20Balance += _amount;
         userToErc20Balance[msg.sender][_erc20Contract] += _amount;
-        require(
-            IERC20(_erc20Contract).transferFrom(
-                msg.sender,
-                address(this),
-                _amount
-            ),
-            "Transfer failed"
-        );
+
+        if (!_erc20Contract.transferFrom(msg.sender, address(this), _amount))
+            revert TokenTransferFailed();
 
         emit DepositERC20(msg.sender, _amount);
     }
@@ -232,14 +219,16 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
     /// @notice Transfers funds to relevant parties and updates data structures
     /// @param _identifier identifies which contract function called the function
     function _transferFunds(uint256 _identifier) internal {
-        uint256 rETHbal = userToErc20Balance[msg.sender][_rETH];
-        uint256 wstETHbal = userToErc20Balance[msg.sender][_wstETH];
-        uint256 sfrxEthbal = userToErc20Balance[msg.sender][_sfrxETH];
-        uint256 cbEthBal = userToErc20Balance[msg.sender][_cbETH];
-
         UserDepositInfo storage userInfo = depositInfo[msg.sender];
 
         uint256 ethBalance = userInfo.etherBalance;
+
+        uint[4] memory tokenBalance = [
+            userToErc20Balance[msg.sender][_rETH],
+            userToErc20Balance[msg.sender][_wstETH],
+            userToErc20Balance[msg.sender][_sfrxETH],
+            userToErc20Balance[msg.sender][_cbETH]
+        ];
 
         userInfo.depositTime = 0;
         userInfo.totalERC20Balance = 0;
@@ -258,16 +247,10 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
             receiver = claimReceiverContract;
         }
 
-        require(_rETHInstance.transfer(receiver, rETHbal), "Transfer failed");
-        require(
-            _wstETHInstance.transfer(receiver, wstETHbal),
-            "Transfer failed"
-        );
-        require(
-            _sfrxETHInstance.transfer(receiver, sfrxEthbal),
-            "Transfer failed"
-        );
-        require(_cbETHInstance.transfer(receiver, cbEthBal), "Transfer failed");
+        for (uint i = 0; i < 3; i++) {
+            if (!_supportedTokens[i].transfer(receiver, tokenBalance[i]))
+                revert TokenTransferFailed();
+        }
 
         payable(receiver).transfer(ethBalance);
     }
@@ -278,10 +261,10 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
 
     /// @dev Returns the total value locked of all currencies in contract
     function getContractTVL() public view returns (uint256 tvl) {
-        tvl = (_rETHInstance.balanceOf(address(this)) +
-            _wstETHInstance.balanceOf(address(this)) +
-            _sfrxETHInstance.balanceOf(address(this)) +
-            _cbETHInstance.balanceOf(address(this)) +
+        tvl = (_rETH.balanceOf(address(this)) +
+            _wstETH.balanceOf(address(this)) +
+            _sfrxETH.balanceOf(address(this)) +
+            _cbETH.balanceOf(address(this)) +
             address(this).balance);
     }
 
@@ -297,10 +280,10 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
             uint256 ethBal
         )
     {
-        rETHBal = _rETHInstance.balanceOf(address(this));
-        wstETHBal = _wstETHInstance.balanceOf(address(this));
-        sfrxETHBal = _wstETHInstance.balanceOf(address(this));
-        cbETHBal = _wstETHInstance.balanceOf(address(this));
+        rETHBal = _rETH.balanceOf(address(this));
+        wstETHBal = _wstETH.balanceOf(address(this));
+        sfrxETHBal = _wstETH.balanceOf(address(this));
+        cbETHBal = _wstETH.balanceOf(address(this));
         ethBal = address(this).balance;
     }
 
