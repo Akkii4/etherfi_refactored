@@ -10,12 +10,6 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
     using Math for uint256;
 
-    struct UserDepositInfo {
-        uint256 depositTime;
-        uint256 etherBalance;
-        uint256 totalERC20Balance;
-    }
-
     error TokenTransferFailed();
 
     //--------------------------------------------------------------------------------------
@@ -33,17 +27,24 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
     IERC20 private immutable _sfrxETH; // 0xac3E018457B222d93114458476f3E3416Abbe38F;
     IERC20 private immutable _cbETH; // 0xBe9895146f7AF43049ca1c1AE358B0541Ea49704;
 
-    IERC20[4] private _supportedTokens;
-
     //Future contract which funds will be sent to on claim (Most likely LP)
     address public claimReceiverContract;
 
     //Status of claims, 1 means claiming is open
     uint8 public claimingOpen;
 
+    mapping(address => UserDepositInfo) public depositInfo;
+
     //user address => token address = balance
     mapping(address => mapping(IERC20 => uint256)) public userToErc20Balance;
-    mapping(address => UserDepositInfo) public depositInfo;
+
+    mapping(IERC20 => bool) public isSupportedToken;
+
+    struct UserDepositInfo {
+        uint256 depositTime;
+        uint256 etherBalance;
+        uint256 totalERC20Balance;
+    }
 
     //--------------------------------------------------------------------------------------
     //-------------------------------------  EVENTS  ---------------------------------------
@@ -64,20 +65,25 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
     //--------------------------------------------------------------------------------------
 
     /// @notice Sets state variables needed for future functions
-    /// @param rETH address of the rEth contract to receive
-    /// @param wstETH address of the wstEth contract to receive
-    /// @param sfrxETH address of the sfrxEth contract to receive
-    /// @param cbETH address of the _cbEth contract to receive
-    constructor(IERC20 rETH, IERC20 wstETH, IERC20 sfrxETH, IERC20 cbETH) {
-        _rETH = rETH;
-        _wstETH = wstETH;
-        _sfrxETH = sfrxETH;
-        _cbETH = cbETH;
+    /// @param __rETH address of the rEth contract to receive
+    /// @param __wstETH address of the wstEth contract to receive
+    /// @param __sfrxETH address of the sfrxEth contract to receive
+    /// @param __cbETH address of the cbEth contract to receive
+    constructor(
+        IERC20 __rETH,
+        IERC20 __wstETH,
+        IERC20 __sfrxETH,
+        IERC20 __cbETH
+    ) {
+        _rETH = __rETH;
+        _wstETH = __wstETH;
+        _sfrxETH = __sfrxETH;
+        _cbETH = __cbETH;
 
-        _supportedTokens[0] = rETH;
-        _supportedTokens[1] = wstETH;
-        _supportedTokens[2] = sfrxETH;
-        _supportedTokens[3] = cbETH;
+        isSupportedToken[__rETH] = true;
+        isSupportedToken[__wstETH] = true;
+        isSupportedToken[__sfrxETH] = true;
+        isSupportedToken[__cbETH] = true;
     }
 
     //--------------------------------------------------------------------------------------
@@ -92,14 +98,7 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
         IERC20 _erc20Contract,
         uint256 _amount
     ) external onlyCorrectAmount(_amount) depositingOpen whenNotPaused {
-        uint256 isTokenSupported = 0;
-        for (uint256 i = 0; i < 4; i++) {
-            if (_erc20Contract == _supportedTokens[i]) {
-                isTokenSupported = 1;
-                break;
-            }
-        }
-        require(isTokenSupported == 1, "Unsupported token");
+        require(isSupportedToken[_erc20Contract], "Unsupported token");
 
         UserDepositInfo storage userInfo = depositInfo[msg.sender];
 
@@ -223,33 +222,24 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
 
         uint256 ethBalance = userInfo.etherBalance;
 
-        uint[4] memory tokenBalance = [
-            userToErc20Balance[msg.sender][_rETH],
-            userToErc20Balance[msg.sender][_wstETH],
-            userToErc20Balance[msg.sender][_sfrxETH],
-            userToErc20Balance[msg.sender][_cbETH]
-        ];
-
         userInfo.depositTime = 0;
         userInfo.totalERC20Balance = 0;
         userInfo.etherBalance = 0;
 
-        userToErc20Balance[msg.sender][_rETH] = 0;
-        userToErc20Balance[msg.sender][_wstETH] = 0;
-        userToErc20Balance[msg.sender][_sfrxETH] = 0;
-        userToErc20Balance[msg.sender][_cbETH] = 0;
+        address receiver = (_identifier == 0)
+            ? msg.sender
+            : claimReceiverContract;
 
-        address receiver;
+        IERC20[4] memory validTokens = [_rETH, _wstETH, _sfrxETH, _cbETH];
 
-        if (_identifier == 0) {
-            receiver = msg.sender;
-        } else {
-            receiver = claimReceiverContract;
-        }
-
-        for (uint i = 0; i < 3; i++) {
-            if (!_supportedTokens[i].transfer(receiver, tokenBalance[i]))
-                revert TokenTransferFailed();
+        for (uint256 i = 0; i < 4; i++) {
+            IERC20 token = validTokens[i];
+            uint256 tokenBalance = userToErc20Balance[msg.sender][token];
+            if (tokenBalance > 0) {
+                userToErc20Balance[msg.sender][token] = 0;
+                if (!token.transfer(receiver, tokenBalance))
+                    revert TokenTransferFailed();
+            }
         }
 
         payable(receiver).transfer(ethBalance);
