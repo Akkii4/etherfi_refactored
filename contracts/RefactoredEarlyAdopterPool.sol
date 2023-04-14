@@ -274,8 +274,8 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
     {
         rETHBal = _rETH.balanceOf(address(this));
         wstETHBal = _wstETH.balanceOf(address(this));
-        sfrxETHBal = _wstETH.balanceOf(address(this));
-        cbETHBal = _wstETH.balanceOf(address(this));
+        sfrxETHBal = _sfrxETH.balanceOf(address(this));
+        cbETHBal = _cbETH.balanceOf(address(this));
         ethBal = address(this).balance;
         tvl = rETHBal + wstETHBal + sfrxETHBal + cbETHBal + ethBal;
     }
