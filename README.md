@@ -7,7 +7,7 @@ Try running some of the following tasks:
 ```shell
 npx hardhat help
 npx hardhat test
-npx hardhat test
+npx hardhat coverage
 npx hardhat node
 HARDHAT_NETWORK=test npx hardhat run scripts/deploy.js
 ```
