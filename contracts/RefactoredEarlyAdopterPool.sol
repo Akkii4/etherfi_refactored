@@ -259,17 +259,8 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
     //-------------------------------------     GETTERS  ------------------------------------
     //--------------------------------------------------------------------------------------
 
-    /// @dev Returns the total value locked of all currencies in contract
-    function getContractTVL() public view returns (uint256 tvl) {
-        tvl = (_rETH.balanceOf(address(this)) +
-            _wstETH.balanceOf(address(this)) +
-            _sfrxETH.balanceOf(address(this)) +
-            _cbETH.balanceOf(address(this)) +
-            address(this).balance);
-    }
-
-    /// @dev Returns the balance for each currencies and eth locked in contract
-    function getContractTokensBalance()
+    /// @dev Returns the balance for each currencies, eth & TVL of contract
+    function getContractTVL()
         public
         view
         returns (
@@ -277,7 +268,8 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
             uint256 wstETHBal,
             uint256 sfrxETHBal,
             uint256 cbETHBal,
-            uint256 ethBal
+            uint256 ethBal,
+            uint256 tvl
         )
     {
         rETHBal = _rETH.balanceOf(address(this));
@@ -285,6 +277,7 @@ contract RefactoredEarlyAdopterPool is Ownable, ReentrancyGuard, Pausable {
         sfrxETHBal = _wstETH.balanceOf(address(this));
         cbETHBal = _wstETH.balanceOf(address(this));
         ethBal = address(this).balance;
+        tvl = rETHBal + wstETHBal + sfrxETHBal + cbETHBal + ethBal;
     }
 
     function getUserTVL(
