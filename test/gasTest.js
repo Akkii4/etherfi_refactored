@@ -83,9 +83,6 @@ describe("GasCompare", function () {
             .connect(user1)
             .approve(earlyAdopterPool.address, depositAmount);
 
-          // Advance time to next block
-          await ethers.provider.send("evm_mine");
-
           // Deposit 1 sfrxETH tokens into the EarlyAdopterPool contract
           await earlyAdopterPool
             .connect(user1)
@@ -182,14 +179,11 @@ describe("GasCompare", function () {
             .connect(user1)
             .approve(refactoredPool.address, depositAmount);
 
-          // Advance time to next block
-          await ethers.provider.send("evm_mine");
-
           // Deposit 1 wstETH tokens into the RefactoredEarlyAdopterPool contract
           await refactoredPool
             .connect(user1)
             .deposit(wstETH.address, depositAmount);
-          const res = await refactoredPool.getUserTVL(user1.address);
+          const res = await refactoredPool.getContractTVL();
           // Access the tvl value from the returned tuple
           const tvl = res[5];
           expect(tvl).to.equal(ethers.utils.parseEther("3"));
