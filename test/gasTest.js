@@ -90,12 +90,20 @@ describe("GasCompare", function () {
           await earlyAdopterPool
             .connect(user1)
             .deposit(sfrxETH.address, depositAmount);
+
+          expect(await earlyAdopterPool.getContractTVL()).to.equal(
+            ethers.utils.parseEther("3")
+          );
         });
 
         // Test withdraw function
         it("should allow a user to withdraw all their balance from the pool", async () => {
           // Withdraw all previous deposited tokens & ether from pool
           await earlyAdopterPool.connect(user1).withdraw();
+          const res = await earlyAdopterPool.getUserTVL(user1.address);
+          // Access the totalBal value from the returned tuple
+          const totalBal = res[5];
+          expect(totalBal).to.equal("0");
         });
 
         // Test claim function
@@ -181,12 +189,20 @@ describe("GasCompare", function () {
           await refactoredPool
             .connect(user1)
             .deposit(wstETH.address, depositAmount);
+          const res = await refactoredPool.getUserTVL(user1.address);
+          // Access the tvl value from the returned tuple
+          const tvl = res[5];
+          expect(tvl).to.equal(ethers.utils.parseEther("3"));
         });
 
         // Test withdraw function
         it("should allow a user to withdraw all their balance from the pool", async () => {
           // Withdraw all previous deposited tokens & ether from pool
           await refactoredPool.connect(user1).withdraw();
+          const res = await refactoredPool.getUserTVL(user1.address);
+          // Access the totalBal value from the returned tuple
+          const totalBal = res[5];
+          expect(totalBal).to.equal("0");
         });
 
         // Test claim function
