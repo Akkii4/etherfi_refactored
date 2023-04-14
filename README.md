@@ -14,4 +14,8 @@ HARDHAT_NETWORK=test npx hardhat run scripts/deploy.js
 
 ### Test Output
 
-![alt text](https://github.com/Akkii4/etherfi_refactored/blob/main/test_result.png)
+![Test reult along with gas costs](https://github.com/Akkii4/etherfi_refactored/blob/main/test_result.png)
+
+### Test Coverage
+
+![Coverage of test on each contract](https://github.com/Akkii4/etherfi_refactored/blob/main/test_coverage.png)
