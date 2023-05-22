@@ -1,6 +1,6 @@
 # Early Adopter Pool Contract Refactored
 
-Refactored the source code of EarlyAdopterPool with **TVL of $35 Mn+** deployed [at](https://etherscan.io/address/0x7623e9dc0da6ff821ddb9ebaba794054e078f8c4?method=Deposit~0x47e7ef24#code), to achieve some substantial gas savings across major functions.
+Refactored the source code of EarlyAdopterPool Contract with **TVL of $35 Mn+** deployed [at](https://etherscan.io/address/0x7623e9dc0da6ff821ddb9ebaba794054e078f8c4?method=Deposit~0x47e7ef24#code), to achieve some substantial gas savings across major functions.
 
 Try running some of the following tasks:
 
